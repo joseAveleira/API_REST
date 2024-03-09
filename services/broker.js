@@ -50,4 +50,6 @@ module.exports = {
     }
   
   };
+
+  ws.createServer({ server: WsServer }, aedes.handle);
   

@@ -8,7 +8,7 @@ var Device = require('./models/device');
 const mongoSanitize = require('express-mongo-sanitize');
 var app = express();
 var port = 3000;
-var database = 'mongodb://localhost:27017/demoAPIREST';
+var database = 'mongodb://127.0.0.1:27017/demoAPIREST';
 mongoose.connect(database);
 var db= mongoose.connection;
 var middleware = require('./auth/middleware');
