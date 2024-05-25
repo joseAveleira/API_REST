@@ -1,13 +1,19 @@
 var express = require('express');
 var cors = require('cors');
+const fs = require('fs');
+const path = require('path');
+const chatWithCohere = require('./services/cohereIA');
 //añadimos mongoose
 var mongoose = require('mongoose');
 var bodyParser = require('body-parser');
 //añadimos el modelo
 var Device = require('./models/device');
 const mongoSanitize = require('express-mongo-sanitize');
+
 var app = express();
 var port = 3000;
+//usamos cors
+app.use(cors());
 var database = 'mongodb://127.0.0.1:27017/demoAPIREST';
 mongoose.connect(database);
 var db= mongoose.connection;
@@ -125,9 +131,7 @@ app.delete('/devices/:type', async (req, res) => {
 app.post('/devices/find', async (req, res) => {
     try {
         console.log(JSON.stringify(req.body, null, 2));
-        
-        // Realiza la búsqueda con un filtro, por ejemplo, {"type": "temperature"}
-        
+         
         const devices = await Device.find(req.body).exec();
         res.json(devices);
     } catch (err) {
@@ -142,6 +146,54 @@ app.post('/auth/login', authCtrl.aliasLogin);
 
 
 broker.startBroker();
+
+
+
+function formatearTexto(texto, maxLineLength) {
+    let lineas = texto.split('\n');
+    let textoFormateado = '';
+
+    lineas.forEach((linea) => {
+        let palabras = linea.split(' ');
+        let lineaActual = '';
+
+        palabras.forEach((palabra) => {
+            if ((lineaActual + palabra).length > maxLineLength) {
+                textoFormateado += lineaActual.trim() + '\n';
+                lineaActual = palabra + ' ';
+            } else {
+                lineaActual += palabra + ' ';
+            }
+        });
+
+        // Agregar lo que queda en la línea actual al texto formateado
+        if (lineaActual) {
+            textoFormateado += lineaActual.trim() + '\n';
+        }
+    });
+
+    return textoFormateado.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+broker.handleMessages('/IAGame', async function (msg, clientId) {
+    console.log(`Mensaje recibido de ${clientId}: ${msg}`);
+    let cohereMessage;
+    if (msg === '1' || msg === '2') {
+        
+      cohereMessage = "se eleige la opción " + msg+" con la contestacion muy breve de persona y  encerrada condando sobre ella  y dame dos opciones muy breves";
+    } else if (msg === '3') {
+        console.log("reinicia el juego");
+        cohereMessage = fs.readFileSync(path.join(__dirname, './services/gameOrigin.txt'), 'utf8');
+    }
+  
+    if (cohereMessage) {
+      const response = await chatWithCohere(cohereMessage, clientId);
+      //const sintildes = eliminarTildes(response)
+      const textoFormateado = formatearTexto(response, 45)
+      console.log(`Respuesta de Cohere: ${textoFormateado}`);
+      broker.publish('/IAGameResponse', textoFormateado);
+    }
+  });
 // app.listen para arrancar el servidor web con express en el puerto 3000
 app.listen(port, function () {
     console.log('API REST en el puerto ' + port);
